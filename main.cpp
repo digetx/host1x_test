@@ -96,9 +96,35 @@ void test_submit_sync_postfence() {
     pfd.events = POLLIN;
     pfd.fd = result.fence;
 
-    int err = poll(&pfd, 1, 1000);
+    int err = poll(&pfd, 1, 100);
     if (err != 1 || !(pfd.revents & POLLIN))
         throw std::runtime_error("Fence FD poll failed or timed out");
+}
+
+void test_submit_postfence_timeout() {
+    DrmDevice drm;
+    Channel ch(drm);
+
+    uint32_t syncpt = ch.syncpoint(0);
+
+    Submit submit;
+    submit.push(host1x_opcode_nonincr(0, 1));
+    submit.push(syncpt | (1 << 8));
+
+    submit.add_incr(syncpt, 2);
+    submit.set_flags(DRM_TEGRA_SUBMIT_CREATE_FENCE_FD);
+
+    auto result = submit.submit(ch);
+
+    struct pollfd pfd;
+    pfd.events = POLLIN;
+    pfd.fd = result.fence;
+
+    int err = poll(&pfd, 1, 1000);
+    if (err == 1 && pfd.revents & POLLIN)
+        throw std::runtime_error("Fence FD poll returned without timeout");
+    else if (err != 0)
+        throw std::runtime_error("Fence FD poll failed");
 }
 
 int main(int argc, char **argv) {
@@ -114,6 +140,7 @@ int main(int argc, char **argv) {
     PUSH_TEST(test_submit_wait);
     PUSH_TEST(test_submit_sync_postfence);
     PUSH_TEST(test_submit_timeout);
+    PUSH_TEST(test_submit_postfence_timeout);
 
     for (const auto &test : tests) {
         fprintf(stderr, "- %-40s ", test.name);
