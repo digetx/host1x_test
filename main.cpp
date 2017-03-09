@@ -68,7 +68,7 @@ void test_submit_timeout() {
     auto result = submit.submit(ch);
 
     try {
-        wait_syncpoint(drm, syncpt, result.fence, 1000);
+        wait_syncpoint(drm, syncpt, result.fence, 100);
     }
     catch (...) {
         return;
