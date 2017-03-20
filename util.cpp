@@ -107,7 +107,6 @@ drm_tegra_submit Submit::submit(Channel &ch) {
     submit_desc.num_cmdbufs = 1;
     submit_desc.syncpts = (uintptr_t)&_incrs[0];
     submit_desc.cmdbufs = (uintptr_t)&cmdbuf_desc;
-    submit_desc.flags = _flags;
 
     int err = ch._drm.ioctl(DRM_IOCTL_TEGRA_SUBMIT, &submit_desc);
     if (err == -1)
