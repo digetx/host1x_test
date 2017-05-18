@@ -47,10 +47,17 @@ public:
     DrmDevice &_drm;
 };
 
+struct SubmitQuirks {
+    SubmitQuirks();
+
+    uint32_t force_cmdbuf_words;
+};
+
 class Submit {
 private:
     std::vector<uint32_t> _cmdbuf;
     std::vector<drm_tegra_syncpt> _incrs;
+    std::vector<drm_tegra_reloc> _relocs;
     uint32_t _flags;
 
 public:
@@ -59,8 +66,12 @@ public:
     void set_flags(uint32_t flags);
     void push(uint32_t cmd);
     void add_incr(uint32_t syncpt, int count);
+    void add_reloc(uint32_t cmdbuf_offset, uint32_t target,
+                   uint32_t target_offset, uint32_t shift);
 
     drm_tegra_submit submit(Channel &ch);
+
+    SubmitQuirks quirks;
 };
 
 void wait_syncpoint(DrmDevice &drm, uint32_t id, uint32_t threshold, uint32_t timeout);

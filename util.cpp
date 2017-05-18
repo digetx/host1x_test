@@ -84,10 +84,27 @@ void Submit::add_incr(uint32_t syncpt, int count) {
     _incrs.push_back(spt);
 }
 
+void Submit::add_reloc(uint32_t cmdbuf_offset, uint32_t target,
+                       uint32_t target_offset, uint32_t shift)
+{
+    drm_tegra_reloc reloc;
+    memset(&reloc, 0, sizeof(reloc));
+    reloc.cmdbuf.handle = 0;
+    reloc.cmdbuf.offset = cmdbuf_offset;
+    reloc.target.handle = target;
+    reloc.target.offset = target_offset;
+    reloc.shift = shift;
+
+    _relocs.push_back(reloc);
+}
+
 drm_tegra_submit Submit::submit(Channel &ch) {
     GemBuffer cmdbuf_bo(ch._drm);
     if (cmdbuf_bo.allocate(_cmdbuf.size() * sizeof(uint32_t)))
         throw ioctl_error("Cmdbuf GEM allocation failed");
+
+    for (auto &reloc : _relocs)
+        reloc.cmdbuf.handle = cmdbuf_bo.handle();
 
     void *cmdbuf_ptr = cmdbuf_bo.map();
     if (!cmdbuf_ptr)
@@ -98,15 +115,17 @@ drm_tegra_submit Submit::submit(Channel &ch) {
     drm_tegra_cmdbuf cmdbuf_desc;
     cmdbuf_desc.handle = cmdbuf_bo.handle();
     cmdbuf_desc.offset = 0;
-    cmdbuf_desc.words = _cmdbuf.size();
+    cmdbuf_desc.words = quirks.force_cmdbuf_words || _cmdbuf.size();
 
     drm_tegra_submit submit_desc;
     memset(&submit_desc, 0, sizeof(submit_desc));
     submit_desc.context = ch._context;
     submit_desc.num_syncpts = _incrs.size();
     submit_desc.num_cmdbufs = 1;
+    submit_desc.num_relocs = _relocs.size();
     submit_desc.syncpts = (uintptr_t)&_incrs[0];
     submit_desc.cmdbufs = (uintptr_t)&cmdbuf_desc;
+    submit_desc.relocs = (uintptr_t)&_relocs[0];
 
     int err = ch._drm.ioctl(DRM_IOCTL_TEGRA_SUBMIT, &submit_desc);
     if (err == -1)
@@ -127,3 +146,6 @@ void wait_syncpoint(DrmDevice &drm, uint32_t id, uint32_t threshold, uint32_t ti
         throw ioctl_error("Syncpoint wait failed");
 }
 
+SubmitQuirks::SubmitQuirks()
+: force_cmdbuf_words(0)
+{ }
