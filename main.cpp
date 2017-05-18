@@ -77,6 +77,133 @@ void test_submit_timeout() {
     throw std::runtime_error("Syncpoint wait did not timeout");
 }
 
+void test_invalid_cmdbuf() {
+    DrmDevice drm;
+    Channel ch(drm);
+
+    uint32_t syncpt = ch.syncpoint(0);
+
+    /* Command buffer larger than BO */
+    {
+        Submit submit;
+        submit.push(host1x_opcode_nonincr(0, 1));
+        submit.push(syncpt | (1 << 8));
+
+        submit.add_incr(syncpt, 1);
+
+        submit.quirks.force_cmdbuf_words = 10000;
+
+        try {
+            submit.submit(ch);
+        }
+        catch (...) {
+            goto test_2;
+        }
+    }
+
+    throw std::runtime_error("Submit 1 did not return error");
+
+    /* Command buffer with unaligned offset */
+test_2:
+    {
+        Submit submit;
+        submit.push(host1x_opcode_nonincr(0, 1));
+        submit.push(syncpt | (1 << 8));
+
+        submit.add_incr(syncpt, 1);
+
+        submit.quirks.force_cmdbuf_offset = 1;
+
+        try {
+            submit.submit(ch);
+        }
+        catch (...) {
+            goto done;
+        }
+    }
+
+    throw std::runtime_error("Submit 2 did not return error");
+
+done:
+    return;
+}
+
+void test_invalid_reloc() {
+    DrmDevice drm;
+    Channel ch(drm);
+
+    GemBuffer target_bo(drm);
+    if (target_bo.allocate(128))
+        throw std::runtime_error("Allocation failed");
+
+    uint32_t syncpt = ch.syncpoint(0);
+
+    /* Reloc with offset larger than BO */
+    {
+        Submit submit;
+        submit.push(host1x_opcode_nonincr(0, 1));
+        submit.push(syncpt | (1 << 8));
+
+        submit.add_incr(syncpt, 1);
+
+        submit.add_reloc(8192, target_bo.handle(), 0, 0);
+
+        try {
+            submit.submit(ch);
+        }
+        catch (...) {
+            goto test_2;
+        }
+    }
+
+    throw std::runtime_error("Submit 1 did not return error");
+
+    /* Reloc with unaligned offset */
+test_2:
+    {
+        Submit submit;
+        submit.push(host1x_opcode_nonincr(0, 1));
+        submit.push(syncpt | (1 << 8));
+
+        submit.add_incr(syncpt, 1);
+
+        submit.add_reloc(1, target_bo.handle(), 0, 0);
+
+        try {
+            submit.submit(ch);
+        }
+        catch (...) {
+            goto test_3;
+        }
+    }
+
+    throw std::runtime_error("Submit 2 did not return error");
+
+    /* Reloc with target offset larger than target BO */
+test_3:
+    {
+        Submit submit;
+        submit.push(host1x_opcode_nonincr(0, 1));
+        submit.push(syncpt | (1 << 8));
+
+        submit.add_incr(syncpt, 1);
+
+        submit.add_reloc(0, target_bo.handle(), 8192, 0);
+
+        try {
+            submit.submit(ch);
+        }
+        catch (...) {
+            goto done;
+        }
+    }
+
+    throw std::runtime_error("Submit 3 did not return error");
+
+done:
+    return;
+}
+
 int main(int argc, char **argv) {
     fprintf(stderr, "host1x_test - Linux host1x driver test suite\n");
 
@@ -89,6 +216,8 @@ int main(int argc, char **argv) {
 #define PUSH_TEST(name) tests.push_back({ #name, name })
     PUSH_TEST(test_submit_wait);
     PUSH_TEST(test_submit_timeout);
+    PUSH_TEST(test_invalid_cmdbuf);
+    PUSH_TEST(test_invalid_reloc);
 
     for (const auto &test : tests) {
         fprintf(stderr, "- %-40s ", test.name);
