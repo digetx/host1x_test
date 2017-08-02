@@ -33,8 +33,11 @@
 #include "gem.h"
 #include "host1x.h"
 #include "util.h"
+#include "platform.h"
 
 #include <libdrm/tegra_drm.h>
+
+Platform platform;
 
 void test_submit_wait() {
     DrmDevice drm;
@@ -44,7 +47,7 @@ void test_submit_wait() {
 
     Submit submit;
     submit.push(host1x_opcode_nonincr(0, 1));
-    submit.push(syncpt | (1 << 8));
+    submit.push(platform.incrementSyncpointOp(syncpt));
 
     submit.add_incr(syncpt, 1);
 
@@ -61,7 +64,7 @@ void test_submit_timeout() {
 
     Submit submit;
     submit.push(host1x_opcode_nonincr(0, 1));
-    submit.push(syncpt | (1 << 8));
+    submit.push(platform.incrementSyncpointOp(syncpt));
 
     submit.add_incr(syncpt, 2);
 
@@ -87,7 +90,7 @@ void test_invalid_cmdbuf() {
     {
         Submit submit;
         submit.push(host1x_opcode_nonincr(0, 1));
-        submit.push(syncpt | (1 << 8));
+        submit.push(platform.incrementSyncpointOp(syncpt));
 
         submit.add_incr(syncpt, 1);
 
@@ -108,7 +111,7 @@ test_2:
     {
         Submit submit;
         submit.push(host1x_opcode_nonincr(0, 1));
-        submit.push(syncpt | (1 << 8));
+        submit.push(platform.incrementSyncpointOp(syncpt));
 
         submit.add_incr(syncpt, 1);
 
@@ -142,7 +145,7 @@ void test_invalid_reloc() {
     {
         Submit submit;
         submit.push(host1x_opcode_nonincr(0, 1));
-        submit.push(syncpt | (1 << 8));
+        submit.push(platform.incrementSyncpointOp(syncpt));
 
         submit.add_incr(syncpt, 1);
 
@@ -163,7 +166,7 @@ test_2:
     {
         Submit submit;
         submit.push(host1x_opcode_nonincr(0, 1));
-        submit.push(syncpt | (1 << 8));
+        submit.push(platform.incrementSyncpointOp(syncpt));
 
         submit.add_incr(syncpt, 1);
 
@@ -184,7 +187,7 @@ test_3:
     {
         Submit submit;
         submit.push(host1x_opcode_nonincr(0, 1));
-        submit.push(syncpt | (1 << 8));
+        submit.push(platform.incrementSyncpointOp(syncpt));
 
         submit.add_incr(syncpt, 1);
 
@@ -206,6 +209,35 @@ done:
 
 int main(int argc, char **argv) {
     fprintf(stderr, "host1x_test - Linux host1x driver test suite\n");
+
+    if (platform.initialize()) {
+        const char *name;
+        switch (platform.soc()) {
+            case Platform::Tegra20:
+                name = "Tegra20 [Tegra 2]";
+                break;
+            case Platform::Tegra30:
+                name = "Tegra30 [Tegra 3]";
+                break;
+            case Platform::Tegra114:
+                name = "Tegra114 [Tegra 4]";
+                break;
+            case Platform::Tegra124:
+                name = "Tegra124 [Tegra K1]";
+                break;
+            case Platform::Tegra210:
+                name = "Tegra210 [Tegra X1]";
+                break;
+            case Platform::Tegra186:
+                name = "Tegra186 [Tegra X2]";
+                break;
+        }
+
+        fprintf(stderr, "Platform: %s\n", name);
+    } else {
+        fprintf(stderr, "Failed to detect platform, defaulting to Tegra210\n");
+        platform.setSoc(Platform::Tegra210);
+    }
 
     struct TestCase {
         const char *name;

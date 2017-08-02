@@ -4,7 +4,7 @@ project(host1x_test)
 find_package(PkgConfig)
 pkg_search_module(DRM REQUIRED libdrm)
 
-add_executable(host1x_test main.cpp gem.cpp util.cpp)
+add_executable(host1x_test main.cpp gem.cpp util.cpp platform.cpp)
 set_target_properties(host1x_test PROPERTIES CXX_STANDARD 14)
 set_target_properties(host1x_test PROPERTIES CXX_STANDARD_REQUIRED ON)
 

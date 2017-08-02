@@ -27,6 +27,9 @@
 #include <cstring>
 
 #include "host1x.h"
+#include "platform.h"
+
+extern Platform platform;
 
 ioctl_error::ioctl_error(const char *message) : std::runtime_error(message) {
     error = errno;
@@ -35,7 +38,7 @@ ioctl_error::ioctl_error(const char *message) : std::runtime_error(message) {
 Channel::Channel(DrmDevice &drm) : _drm(drm) {
     drm_tegra_open_channel open_channel_args;
     memset(&open_channel_args, 0, sizeof(open_channel_args));
-    open_channel_args.client = HOST1X_CLASS_VIC;
+    open_channel_args.client = platform.defaultClass();
 
     int err = drm.ioctl(DRM_IOCTL_TEGRA_OPEN_CHANNEL, &open_channel_args);
     if (err == -1)
