@@ -28,7 +28,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include <libdrm/tegra_drm.h>
+#include "tegra_drm.h"
 
 class ioctl_error : public std::runtime_error {
 public:

@@ -129,6 +129,7 @@ drm_tegra_submit Submit::submit(Channel &ch) {
     submit_desc.syncpts = (uintptr_t)&_incrs[0];
     submit_desc.cmdbufs = (uintptr_t)&cmdbuf_desc;
     submit_desc.relocs = (uintptr_t)&_relocs[0];
+    submit_desc.flags = _flags;
 
     int err = ch._drm.ioctl(DRM_IOCTL_TEGRA_SUBMIT, &submit_desc);
     if (err == -1)
@@ -147,6 +148,9 @@ void wait_syncpoint(DrmDevice &drm, uint32_t id, uint32_t threshold, uint32_t ti
     int err = drm.ioctl(DRM_IOCTL_TEGRA_SYNCPT_WAIT, &syncpt_wait_args);
     if (err == -1)
         throw ioctl_error("Syncpoint wait failed");
+
+    syncpt_wait_args.timeout = ~0;
+    drm.ioctl(DRM_IOCTL_TEGRA_SYNCPT_WAIT, &syncpt_wait_args);
 }
 
 SubmitQuirks::SubmitQuirks()

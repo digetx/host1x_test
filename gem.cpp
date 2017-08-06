@@ -30,7 +30,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include <libdrm/tegra_drm.h>
+#include "tegra_drm.h"
 
 DrmDevice::DrmDevice()
 {
