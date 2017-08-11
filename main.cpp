@@ -74,6 +74,8 @@ void test_submit_timeout() {
         wait_syncpoint(drm, syncpt, result.fence, 100);
     }
     catch (...) {
+        /* Wait for jobs timeout to avoid further tests failures */
+        wait_syncpoint(drm, syncpt, result.fence, DRM_TEGRA_NO_TIMEOUT);
         return;
     }
 
