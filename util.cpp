@@ -25,6 +25,8 @@
 
 #include <cerrno>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 
 #include "host1x.h"
 #include "platform.h"
@@ -153,3 +155,24 @@ SubmitQuirks::SubmitQuirks()
 : force_cmdbuf_words(0)
 , force_cmdbuf_offset(0)
 { }
+
+std::string read_file(const std::string& path)
+{
+    std::ifstream f(path.c_str());
+    std::stringstream s;
+    s << f.rdbuf();
+
+    if (f.fail())
+        throw std::runtime_error("Reading of " + path + " failed");
+
+    return s.str();
+}
+
+void write_file(const std::string& path, const std::string& text)
+{
+    std::ofstream f(path.c_str());
+    f << text;
+
+    if (f.fail())
+        throw std::runtime_error("Writing to " + path + " failed");
+}

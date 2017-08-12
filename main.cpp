@@ -24,11 +24,13 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <vector>
 #include <stdexcept>
 #include <cerrno>
 
 #include <poll.h>
+#include <sched.h>
 
 #include "gem.h"
 #include "host1x.h"
@@ -39,7 +41,7 @@
 
 Platform platform;
 
-void test_submit_wait() {
+void test_submit_wait(std::string& message) {
     DrmDevice drm;
     Channel ch(drm);
 
@@ -56,7 +58,7 @@ void test_submit_wait() {
     wait_syncpoint(drm, syncpt, result.fence, 1000);
 }
 
-void test_submit_timeout() {
+void test_submit_timeout(std::string& message) {
     DrmDevice drm;
     Channel ch(drm);
 
@@ -82,7 +84,7 @@ void test_submit_timeout() {
     throw std::runtime_error("Syncpoint wait did not timeout");
 }
 
-void test_invalid_cmdbuf() {
+void test_invalid_cmdbuf(std::string& message) {
     DrmDevice drm;
     Channel ch(drm);
 
@@ -133,7 +135,7 @@ done:
     return;
 }
 
-void test_invalid_reloc() {
+void test_invalid_reloc(std::string& message) {
     DrmDevice drm;
     Channel ch(drm);
 
@@ -209,6 +211,109 @@ done:
     return;
 }
 
+float submit_performance_test(std::string& message, unsigned num_batches,
+                              unsigned num_submits, unsigned num_relocs)
+{
+    DrmDevice drm;
+    Channel ch(drm);
+    uint32_t syncpt = ch.syncpoint(0);
+    unsigned i = 0, k;
+
+    std::vector<GemBuffer*> relocs(num_relocs);
+
+    for (auto &bo : relocs) {
+        bo = new GemBuffer(drm);
+
+        if (bo->allocate(4096))
+            throw std::runtime_error("Allocation failed");
+    }
+
+    Submit submit;
+    for (auto &bo : relocs) {
+        submit.push(host1x_opcode_nonincr(0x2b, 1));
+        submit.push(0xdeadbeef);
+    }
+    submit.push(host1x_opcode_nonincr(0, 1));
+    submit.push(platform.incrementSyncpointOp(syncpt));
+
+    submit.add_incr(syncpt, 1);
+
+    for (auto &bo : relocs)
+        submit.add_reloc(i++ * 8 + 4, bo->handle(), 0, 0);
+
+    clock_t clocks = 0;
+
+    for (i = 0; i < num_batches; i++) {
+        drm_tegra_submit result;
+        clock_t begin = clock();
+
+        for (k = 0; k < num_submits; k++)
+            result = submit.submit(ch);
+
+        clocks += clock() - begin;
+        wait_syncpoint(drm, syncpt, result.fence, DRM_TEGRA_NO_TIMEOUT);
+    }
+
+    for (auto &bo : relocs)
+        delete bo;
+
+    char buffer[256];
+    float elapsed = double(clocks) / CLOCKS_PER_SEC;
+
+    sprintf(buffer, "perf: %3u batches each %3u submits with %3u "
+                    "relocations averagely took %f sec per batch, "
+                    "one submit takes %f us\n",
+            i, k, relocs.size(),
+            elapsed / i, elapsed / i / k * 1000000);
+
+    message += buffer;
+
+    return elapsed;
+}
+
+void test_submit_performance(std::string& message) {
+    std::string path = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor";
+    std::string governor;
+
+    /*
+     * Bind process to CPU0 and change its freq governor to reduce
+     * performance jitter.
+     */
+    try {
+        governor = read_file(path);
+        write_file(path, "performance");
+
+        if (read_file(path).compare("performance") < 0)
+            governor.clear();
+    }
+    catch (...) {
+    }
+
+    if (governor.empty())
+        message += "perf: CPU frequency scaling governor change failed!\n";
+
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    CPU_SET(0, &mask);
+
+    if (sched_setaffinity(0, sizeof(mask), &mask) != 0)
+         message += "perf: Binding to CPU0 failed!\n";
+
+    float time = 0;
+
+    for (unsigned i = 0; i < 22; i += 3) {
+        time += submit_performance_test(message, 50,  10, i);
+        time += submit_performance_test(message, 30,  50, i);
+        time += submit_performance_test(message, 10, 255, i);
+    }
+
+    message += "perf: totally spent " + std::to_string(time) + " sec\n";
+
+    /* Restore original governor */
+    if (!governor.empty())
+        write_file(path, governor);
+}
+
 int main(int argc, char **argv) {
     fprintf(stderr, "host1x_test - Linux host1x driver test suite\n");
 
@@ -243,7 +348,7 @@ int main(int argc, char **argv) {
 
     struct TestCase {
         const char *name;
-        void (*func)();
+        void (*func)(std::string& message);
     };
     std::vector<TestCase> tests;
 
@@ -252,12 +357,14 @@ int main(int argc, char **argv) {
     PUSH_TEST(test_submit_timeout);
     PUSH_TEST(test_invalid_cmdbuf);
     PUSH_TEST(test_invalid_reloc);
+    PUSH_TEST(test_submit_performance);
 
     for (const auto &test : tests) {
         fprintf(stderr, "- %-40s ", test.name);
         try {
-            (test.func)();
-            fprintf(stderr, "PASSED\n");
+            std::string message;
+            (test.func)(message);
+            fprintf(stderr, "PASSED\n%s", message.c_str());
         }
         catch (ioctl_error e) {
             fprintf(stderr, "FAILED\n");

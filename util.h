@@ -77,5 +77,9 @@ public:
 
 void wait_syncpoint(DrmDevice &drm, uint32_t id, uint32_t threshold, uint32_t timeout);
 
+std::string read_file(const std::string& path);
+
+void write_file(const std::string& path, const std::string& text);
+
 #endif
 
