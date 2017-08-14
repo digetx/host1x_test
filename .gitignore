@@ -1,0 +1,6 @@
+.*
+*.orig
+CMake*
+cmake*
+Makefile
+host1x_test
