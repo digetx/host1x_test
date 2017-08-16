@@ -260,8 +260,8 @@ float submit_performance_test(std::string& message, unsigned num_batches,
     char buffer[256];
     float elapsed = double(clocks) / CLOCKS_PER_SEC;
 
-    sprintf(buffer, "perf: %3u batches each %3u submits with %3u "
-                    "relocations averagely took %f sec per batch, "
+    sprintf(buffer, "perf: %3u batches of %3u submits of %3u "
+                    "relocations took %f sec per batch on average, "
                     "one submit takes %f us\n",
             i, k, relocs.size(),
             elapsed / i, elapsed / i / k * 1000000);
@@ -307,7 +307,7 @@ void test_submit_performance(std::string& message) {
         time += submit_performance_test(message, 10, 255, i);
     }
 
-    message += "perf: totally spent " + std::to_string(time) + " sec\n";
+    message += "perf: spent " + std::to_string(time) + " sec in total\n";
 
     /* Restore original governor */
     if (!governor.empty())
