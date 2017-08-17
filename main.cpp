@@ -287,6 +287,7 @@ void test_submit_performance(std::string& message) {
             governor.clear();
     }
     catch (...) {
+        governor.clear();
     }
 
     if (governor.empty())
