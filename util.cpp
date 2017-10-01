@@ -43,7 +43,7 @@ Channel::Channel(DrmDevice &drm) : _drm(drm) {
     open_channel_args.client = platform.defaultClass();
 
     int err = drm.ioctl(DRM_IOCTL_TEGRA_OPEN_CHANNEL, &open_channel_args);
-    if (err == -1)
+    if (err)
         throw ioctl_error("Channel open failed");
 
     _context = open_channel_args.context;
@@ -64,7 +64,7 @@ uint32_t Channel::syncpoint(uint32_t index) {
     get_syncpt_args.index = index;
 
     int err = _drm.ioctl(DRM_IOCTL_TEGRA_GET_SYNCPT, &get_syncpt_args);
-    if (err == -1)
+    if (err)
         throw ioctl_error("Syncpt get failed");
 
     return get_syncpt_args.id;
@@ -134,7 +134,7 @@ drm_tegra_submit Submit::submit(Channel &ch) {
     submit_desc.timeout = 2000;
 
     int err = ch._drm.ioctl(DRM_IOCTL_TEGRA_SUBMIT, &submit_desc);
-    if (err == -1)
+    if (err)
         throw ioctl_error("Submit failed");
 
     return submit_desc;
@@ -148,7 +148,7 @@ void wait_syncpoint(DrmDevice &drm, uint32_t id, uint32_t threshold, uint32_t ti
     syncpt_wait_args.timeout = timeout;
 
     int err = drm.ioctl(DRM_IOCTL_TEGRA_SYNCPT_WAIT, &syncpt_wait_args);
-    if (err == -1)
+    if (err)
         throw ioctl_error("Syncpoint wait failed");
 }
 
