@@ -220,8 +220,16 @@ float submit_performance_test(std::string& message, unsigned num_batches,
     unsigned i = 0, k;
 
     std::vector<GemBuffer*> relocs(num_relocs);
+    std::vector<GemBuffer*> cmdbufs(num_submits);
 
     for (auto &bo : relocs) {
+        bo = new GemBuffer(drm);
+
+        if (bo->allocate(4096))
+            throw std::runtime_error("Allocation failed");
+    }
+
+    for (auto &bo : cmdbufs) {
         bo = new GemBuffer(drm);
 
         if (bo->allocate(4096))
@@ -248,7 +256,7 @@ float submit_performance_test(std::string& message, unsigned num_batches,
         clock_t begin = clock();
 
         for (k = 0; k < num_submits; k++)
-            result = submit.submit(ch);
+            result = submit.submit(ch, *cmdbufs[k]);
 
         clocks += clock() - begin;
         wait_syncpoint(drm, syncpt, result.fence, DRM_TEGRA_NO_TIMEOUT);

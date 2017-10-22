@@ -103,11 +103,7 @@ void Submit::add_reloc(uint32_t cmdbuf_offset, uint32_t target,
     _relocs.push_back(reloc);
 }
 
-drm_tegra_submit Submit::submit(Channel &ch) {
-    GemBuffer cmdbuf_bo(ch._drm);
-    if (cmdbuf_bo.allocate(_cmdbuf.size() * sizeof(uint32_t)))
-        throw ioctl_error("Cmdbuf GEM allocation failed");
-
+drm_tegra_submit Submit::submit(Channel &ch, GemBuffer &cmdbuf_bo) {
     for (auto &reloc : _relocs)
         reloc.cmdbuf.handle = cmdbuf_bo.handle();
 
@@ -138,6 +134,15 @@ drm_tegra_submit Submit::submit(Channel &ch) {
         throw ioctl_error("Submit failed");
 
     return submit_desc;
+}
+
+drm_tegra_submit Submit::submit(Channel &ch) {
+    GemBuffer cmdbuf_bo(ch._drm);
+
+    if (cmdbuf_bo.allocate(_cmdbuf.size() * sizeof(uint32_t)))
+        throw ioctl_error("Cmdbuf GEM allocation failed");
+
+    return submit(ch, cmdbuf_bo);
 }
 
 void wait_syncpoint(DrmDevice &drm, uint32_t id, uint32_t threshold, uint32_t timeout) {

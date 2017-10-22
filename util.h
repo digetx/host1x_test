@@ -70,6 +70,7 @@ public:
     void add_reloc(uint32_t cmdbuf_offset, uint32_t target,
                    uint32_t target_offset, uint32_t shift);
 
+    drm_tegra_submit submit(Channel &ch, GemBuffer &cmdbuf_bo);
     drm_tegra_submit submit(Channel &ch);
 
     SubmitQuirks quirks;
